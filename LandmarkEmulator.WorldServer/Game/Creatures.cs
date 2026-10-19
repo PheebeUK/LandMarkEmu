@@ -2182,7 +2182,9 @@ namespace LandmarkEmulator.WorldServer.Game
         /// it isn't an enemy (11 May 2016, P5304: only creatures with an active interaction Link show it; P5305:
         /// enemy-faction creatures can't be interacted with).
         /// </summary>
-        private static bool Interactable(Creature c) => c.Story && c.Faction != 0 && StoryTools.CreatureHasClickLink(c.Guid);
+        private static bool Interactable(Creature c)
+            => c.Story && c.Faction != 0
+                && (StoryTools.CreatureHasClickLink(c.Guid) || Npc.WorldNpcs.Owns(c.Guid));
 
         /// <summary>Whether a story creature can be clicked now (<see cref="Interactable(Creature)"/>).</summary>
         public static bool IsInteractable(ulong guid) => FindStory(guid) is Creature c && Interactable(c);

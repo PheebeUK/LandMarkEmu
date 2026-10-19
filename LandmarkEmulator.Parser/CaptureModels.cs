@@ -135,6 +135,24 @@ namespace LandmarkEmulator.Parser
         /// <summary>merge-cel2: scan all NetworkCaptures/_parsed session bins for still-missing IDs.</summary>
         public bool ScanAllCaptures { get; set; }
 
+        /// <summary>extract-creations: landscape zone id (required; not on the wire claim record).</summary>
+        public uint ZoneId { get; set; }
+        /// <summary>extract-creations: PropBase dump for ModelId→PropId (default PacketDumps/145-PropBase).</summary>
+        public string PropDefsPath { get; set; }
+        /// <summary>extract-creations: only write payload folders for ready claims.</summary>
+        public bool ReadyOnly { get; set; }
+
+        /// <summary>parse: skip a capture whose output bins/ folder already has .bin files.</summary>
+        public bool SkipExisting { get; set; }
+        /// <summary>
+        /// parse: when both <c>foo.pcapng</c> and <c>session-foo.pcapng</c> are in the input set, skip the session-* twin.
+        /// </summary>
+        public bool SkipSessionDupes { get; set; }
+        /// <summary>
+        /// parse: with triage loaded, skip files that are not LikelyFullLogin (Auth+Gateway) unless --force.
+        /// </summary>
+        public bool FullLoginOnly { get; set; }
+
         public SessionParseOptions ToSessionOptions(bool timelineOnly = false)
         {
             bool hasFilter = OpcodeFilter.Count > 0;

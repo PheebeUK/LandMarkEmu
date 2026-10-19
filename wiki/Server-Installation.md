@@ -70,7 +70,7 @@ Copy `.env.example` to `.env` and fill in at least:
 | `GAME_DIR` | Your Landmark folder, the one with `Landmark64.exe` (forward slashes). Build 0.695 ([Game Data](Game-Data)) |
 | `DB_ROOT_PASSWORD`, `DB_PASSWORD` | Two long random passwords (letters and digits), set **before the first start**: the database keeps the ones it was created with. Only the containers use them |
 | `PUBLIC_HOST` | The address players on other PCs use to reach this PC; empty = this PC only |
-| `ADMIN_ACCOUNT` | `account:<your account name>` to be an admin ([Account Creation](Account-Creation#admins)) |
+| `ADMIN_ACCOUNT` | Optional bootstrap admin (`account:<name>`); prefer the auth DB `admin` table ([Account Creation](Account-Creation#admins)) |
 
 Every other setting is explained in `.env.example` and in the [Settings Reference](Settings-Reference). Game settings
 default to how live Landmark played; change any of them for your server. After changing `.env`, run

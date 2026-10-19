@@ -22,6 +22,7 @@
     <ProjectReference Include="..\LandmarkEmulator.Gateway\LandmarkEmulator.Gateway.csproj" />
     <ProjectReference Include="..\LandmarkEmulator.Internal\LandmarkEmulator.Internal.csproj" />
     <ProjectReference Include="..\LandmarkEmulator.Shared\LandmarkEmulator.Shared.csproj" />
+    <ProjectReference Include="..\LandmarkEmulator.CaptureImport\LandmarkEmulator.CaptureImport.csproj" />
   </ItemGroup>
 
   <ItemGroup>

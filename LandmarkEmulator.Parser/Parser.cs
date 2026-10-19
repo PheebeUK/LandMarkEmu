@@ -55,7 +55,7 @@ namespace LandmarkEmulator.Parser
                 return 1;
             }
 
-            if (options.Mode is not "pack-terrain" and not "merge-cel2")
+            if (options.Mode is not "pack-terrain" and not "merge-cel2" and not "extract-creations")
                 InitManagers();
 
             var sw = Stopwatch.StartNew();
@@ -66,6 +66,7 @@ namespace LandmarkEmulator.Parser
                 "timeline" => RunTimeline(options),
                 "pack-terrain" => RunPackTerrain(options),
                 "merge-cel2" => RunMergeCel2(options),
+                "extract-creations" => RunExtractCreations(options),
                 _ => FailUnknownMode(options.Mode)
             };
 
@@ -159,6 +160,37 @@ namespace LandmarkEmulator.Parser
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[pack-terrain] FAILED: {ex.Message}");
+                return 1;
+            }
+        }
+
+        private static int RunExtractCreations(ParseCliOptions options)
+        {
+            try
+            {
+                if (options.ZoneId == 0)
+                {
+                    Console.Error.WriteLine("[extract-creations] --zone <id> is required");
+                    return 1;
+                }
+                string outDir = options.OutDir
+                    ?? Path.Combine(options.InputPath, "..", "creation-package");
+                var result = CreationExtractRunner.Run(new CreationExtractRunner.Options
+                {
+                    BinsDir = options.InputPath,
+                    OutDir = outDir,
+                    ZoneId = options.ZoneId,
+                    PropDefsPath = options.PropDefsPath,
+                    ReadyOnly = options.ReadyOnly
+                });
+                Console.WriteLine($"[extract-creations] claims={result.Claims} ready={result.Ready} "
+                    + $"props={result.PropsResolved} unresolved={result.PropsUnresolved} cellAssignments={result.CellsAssigned}");
+                Console.WriteLine($"[extract-creations] package: {result.PackageDir}");
+                return result.Ready > 0 ? 0 : 1;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[extract-creations] FAILED: {ex.Message}");
                 return 1;
             }
         }
@@ -328,44 +360,39 @@ namespace LandmarkEmulator.Parser
             int parsed = 0;
             int skipped = 0;
 
+            if (options.SkipSessionDupes)
+                files = FilterSessionDupes(files);
+
             foreach (var file in files)
             {
+                string fileName = Path.GetFileName(file);
                 var triageRec = triage?.Files?.FirstOrDefault(f =>
-                    string.Equals(f.FileName, Path.GetFileName(file), StringComparison.OrdinalIgnoreCase));
+                    string.Equals(f.FileName, fileName, StringComparison.OrdinalIgnoreCase));
 
                 if (!options.Force && triageRec != null && triageRec.GatewayOnly)
                 {
-                    var skip = new ParseSummary
-                    {
-                        FileName = Path.GetFileName(file),
-                        Skipped = true,
-                        SkipReason = "gatewayOnly (no Auth in triage; use --force to override)"
-                    };
-                    summaries.Add(skip);
-                    skipped++;
-                    Console.WriteLine($"[parse] SKIP {skip.FileName}: {skip.SkipReason}");
+                    skipped += AddSkip(summaries, fileName, "gatewayOnly (no Auth in triage; use --force to override)");
                     continue;
                 }
 
                 if (!options.Force && triageRec != null && !triageRec.HasAuth && triage != null)
                 {
-                    var skip = new ParseSummary
-                    {
-                        FileName = Path.GetFileName(file),
-                        Skipped = true,
-                        SkipReason = "no Auth in triage (use --force to override)"
-                    };
-                    summaries.Add(skip);
-                    skipped++;
-                    Console.WriteLine($"[parse] SKIP {skip.FileName}: {skip.SkipReason}");
+                    skipped += AddSkip(summaries, fileName, "no Auth in triage (use --force to override)");
+                    continue;
+                }
+
+                if (!options.Force && options.FullLoginOnly && triage != null
+                    && (triageRec == null || !triageRec.LikelyFullLogin))
+                {
+                    skipped += AddSkip(summaries, fileName, "not full login in triage (Auth+Gateway; use --force)");
                     continue;
                 }
 
                 // Without triage, skip files whose names strongly suggest gateway-only when not --force.
-                if (!options.Force && triage == null && LooksGatewayOnlyName(Path.GetFileName(file)))
+                if (!options.Force && triage == null && LooksGatewayOnlyName(fileName))
                 {
                     // Still allow; triage is authoritative. Name heuristic only warns.
-                    Console.WriteLine($"[parse] WARN {Path.GetFileName(file)}: name suggests Gateway-only; prefer running triage first");
+                    Console.WriteLine($"[parse] WARN {fileName}: name suggests Gateway-only; prefer running triage first");
                 }
 
                 string stem = Path.GetFileNameWithoutExtension(file);
@@ -374,6 +401,12 @@ namespace LandmarkEmulator.Parser
                     stem = Path.GetFileNameWithoutExtension(stem);
 
                 string outDir = Path.Combine(baseOut, SanitizeDirName(stem));
+                if (options.SkipExisting && HasExistingBins(outDir))
+                {
+                    skipped += AddSkip(summaries, fileName, $"bins already present under {SanitizeDirName(stem)}");
+                    continue;
+                }
+
                 var sessionOpts = options.ToSessionOptions(timelineOnly: false);
                 var parser = new CaptureSessionParser(file, outDir, sessionOpts);
                 var summary = parser.Parse(CancellationToken.None);
@@ -399,6 +432,38 @@ namespace LandmarkEmulator.Parser
         {
             string n = fileName.ToLowerInvariant();
             return n.Contains("externalgateway") || n.Contains("_ega") || n.Contains("ega.");
+        }
+
+        private static int AddSkip(List<ParseSummary> summaries, string fileName, string reason)
+        {
+            summaries.Add(new ParseSummary { FileName = fileName, Skipped = true, SkipReason = reason });
+            Console.WriteLine($"[parse] SKIP {fileName}: {reason}");
+            return 1;
+        }
+
+        private static bool HasExistingBins(string outDir)
+        {
+            string bins = Path.Combine(outDir, "bins");
+            return Directory.Exists(bins) && Directory.EnumerateFiles(bins, "*.bin").Any();
+        }
+
+        /// <summary>
+        /// Prefer non-session-* files when both <c>foo.pcapng</c> and <c>session-foo.pcapng</c> are present.
+        /// </summary>
+        private static List<string> FilterSessionDupes(List<string> files)
+        {
+            var names = new HashSet<string>(files.Select(Path.GetFileName), StringComparer.OrdinalIgnoreCase);
+            var kept = files.Where(f =>
+            {
+                string name = Path.GetFileName(f);
+                if (!name.StartsWith("session-", StringComparison.OrdinalIgnoreCase))
+                    return true;
+                string twin = name.Substring("session-".Length);
+                return !names.Contains(twin);
+            }).ToList();
+            if (kept.Count < files.Count)
+                Console.WriteLine($"[parse] --skip-session-dupes: {files.Count} -> {kept.Count} file(s)");
+            return kept;
         }
 
         private static string SanitizeDirName(string name)
@@ -534,6 +599,33 @@ namespace LandmarkEmulator.Parser
                 {
                     options.TimelineMarkdownPath = RequireValue(args, ref i, a);
                 }
+                else if (a is "--zone")
+                {
+                    string v = RequireValue(args, ref i, a);
+                    if (!uint.TryParse(v, out uint zone) || zone == 0)
+                        throw new ArgumentException($"Invalid --zone: {v}");
+                    options.ZoneId = zone;
+                }
+                else if (a is "--prop-defs")
+                {
+                    options.PropDefsPath = RequireValue(args, ref i, a);
+                }
+                else if (a is "--ready-only")
+                {
+                    options.ReadyOnly = true;
+                }
+                else if (a is "--skip-existing")
+                {
+                    options.SkipExisting = true;
+                }
+                else if (a is "--skip-session-dupes")
+                {
+                    options.SkipSessionDupes = true;
+                }
+                else if (a is "--full-login-only")
+                {
+                    options.FullLoginOnly = true;
+                }
                 else
                 {
                     throw new ArgumentException($"Unknown argument: {a}");
@@ -583,9 +675,11 @@ Usage:
                               [--summary-only] [--with-timeline] [--seconds 60] [--markdown <path>]
                               [--dump-all-ec|--no-dump-all-ec] [--dump-large N] [--no-dump-anchors]
                               [--force] [--from-triage <triage.json>] [--quiet]
+                              [--skip-existing] [--skip-session-dupes] [--full-login-only]
   timeline     <file-or-dir>  [--out <dir>] [--seconds 60] [--markdown <path>] [--quiet]
   pack-terrain <bins-dir> [packet-dumps-dir] [--out <packet-dumps-dir>]
   merge-cel2   <miss-ids-file> [packet-dumps-dir] [--cel2 <path>] [--primary-bins <dir>] [--fallback-bins <dir>] [--ticket <name>]
+  extract-creations <bins-dir> --zone <id> [--out <package-dir>] [--prop-defs <145-PropBase>] [--ready-only]
 
 Examples:
   # Fast RE: dump listed opcodes only, no PacketParse.txt, include timing CSV
@@ -611,9 +705,14 @@ Notes:
   - --with-timeline: also write zone-timeline.csv (+ markdown) in one decrypt pass.
   - dumps-index.csv includes rel_sendself_ms / rel_clientready_ms for each bin.
   - Run triage first. parse skips gateway-only / no-Auth unless --force. --no-enrich skips Auth decrypt.
+  - --skip-existing: skip captures whose _parsed/<stem>/bins already has .bin files.
+  - --skip-session-dupes: drop session-* when the non-session twin is also in the input set.
+  - --full-login-only: with triage, only Auth+Gateway sessions (LikelyFullLogin).
   - pack-terrain: builds TerrainCellBlobStore.bin (CEL2) from CellsUpdate bins; copies manifest/raws;
     refreshes SendSelf.bin + PROVENANCE.md. Prefer green-control 5JeosOMXzw5P1f2S (see docs/packet-dumps-terrain.md).
   - merge-cel2: adds capture blobs for listed miss cellIds into existing CEL2; does not touch manifest/spawn.
+  - extract-creations: ClaimsBase + props + CellsUpdate → offline creation package (report.json + claim/prop/cell
+    payloads). --zone is required. Apply later with WorldServer importcreation.
 ");
         }
     }

@@ -29,7 +29,7 @@ Run from `dev_commands.txt` or the admin menu's *Any command* (see [Running dev 
 | `blockdmg` | `blockdmg <level> <x> <y> <z> <firstBlock> <lastBlock> <health%>` | Console / admins | Probe CellBlockDamage on real terrain. |
 | `caveair` | `caveair <gx gy gz> (global dm)` | Console / admins | Is the client's generated world cave air there? |
 | `cellcompare` | `cellcompare on\|off` | Console / admins | Log how the stored cell compares with each edit's cell (Building.CompareWithClient). |
-| `digmode` | `digmode <n>` | Console / admins | Test switch for smoothed hole surfaces (0 off). |
+| `digmode` | `digmode <n>` | Console / admins | How digs shape holes (TerrainEdits.OffsetMode): 8 the client's own surface (default), 5 the old solid shell, 0 no vertices. For side-by-side checks. |
 | `durability` | `durability <item def> <value>` | Console / admins | Sends a carried item's consumed-count field (the client calls it ConsumedCount, not durability). Test only. |
 | `gamelabels` | `gamelabels [off]` | Console / admins | Switches the labels over site-game control points on or off. |
 | `guildpacket` | `guildpacket <sub hex> <body hex>` | Console / admins | Handle a GuildBase request as if the player's client sent it (tests the roster's right-click requests, which can't be driven through client Lua). |

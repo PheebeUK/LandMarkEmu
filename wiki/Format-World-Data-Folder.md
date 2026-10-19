@@ -45,7 +45,7 @@ landscape, due time in ms, x, y, z, radius, the cells it touched as hex ids sepa
 `D` (healed). Appended as destruction happens, compacted at start, so heals happen on time across restarts.
 
 **Markers** (small text files): what has been stamped once and must not be stamped again, e.g.
-`spire_base.txt` / `spire_base_<zone>.txt` (where the Spire stands and the ground filled under it),
+`spire_base.txt` / `spire_base_<zone>.txt` (where the Spire stands and any deck-carve box),
 `graveyards_<zone>.txt`, the outpost lists, `pioneer_slabs.txt`, `landmarks_of_landmark.txt`, and `layers.v2` (a
 one-time move of build-site voxels from layer 0 to layer 1 is done).
 

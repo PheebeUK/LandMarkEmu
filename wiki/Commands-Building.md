@@ -21,6 +21,7 @@ Run from `dev_commands.txt` or the admin menu's *Any command* (see [Running dev 
 | `beginprop` | `beginprop <prop id>` | Console / admins | Starts a placement as if picked from the props palette; beginprop #&lt;item id&gt;: as if placing that prop item from the bag (the player needs one; opens build mode as the bag does, BuildModeHolster.OpenForPlacement). |
 | `claimbasic` | `claimbasic` | Console / admins | Re-sends the landscape's SendAllClaimBasicInfo (as answering 0x19 does). |
 | `claimhere` | `claimhere` | Console / admins | Claims a build site at the player (gives the flag, then request + confirm). |
+| `importcreation` | `importcreation <packageDir> [claimId …] [--owner me\|&lt;guid&gt;] [--dry-run]` | Console / admins | Applies a Parser `extract-creations` package: inserts ready claims (new ids), writes layer-1 voxels, places props. `--dry-run` only prints the plan. Owner defaults to the targeted player. |
 | `claims` | `claims` | Console / admins | Sends the player every build site of the landscape again. |
 | `clearprops` | `clearprops` | Console / admins | Removes all of the player's props, no refund (test clean-up). |
 | `copyhere` | `copyhere <voxels>` | Console / admins | Copies the props in a box of that many voxels around the player (Building.DevCopy). |

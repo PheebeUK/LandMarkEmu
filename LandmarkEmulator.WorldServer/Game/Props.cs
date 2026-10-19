@@ -169,6 +169,22 @@ namespace LandmarkEmulator.WorldServer.Game
                         byCreature != null && Creatures.IsFullFor(session, creature) ? byCreature : body);
         }
 
+        /// <summary>
+        /// DisplayPropText to one player (world NPC dialogue). Same speaker / creature rules as
+        /// <see cref="DisplayTextBy"/>; Yes / No only when <paramref name="questionId"/> ≠ 0 and mode is 4 or 5, and
+        /// the packet's speaker entity is in that client's full actor table (L96 / L30).
+        /// </summary>
+        public static void DisplayTextTo(WorldSession session, ulong speaker, string text, uint mode, uint seconds,
+            ulong questionId = 0, ulong creature = 0)
+        {
+            if (session == null || session.RezoneTarget != null || string.IsNullOrEmpty(text))
+                return;
+            byte[] body = WritePropText(speaker, text, mode, seconds, questionId);
+            byte[] byCreature = creature == 0 ? null : WritePropText(creature, text, mode, seconds, questionId);
+            session.EnqueueMessage(ZoneMessageOpcode.PlayerUpdateDisplayPropText,
+                byCreature != null && Creatures.IsFullFor(session, creature) ? byCreature : body);
+        }
+
         /// <summary>The props whose text can be shown (Links "display the text"): Rustic Sign, Fjorden Books, Gold Scroll.</summary>
         private static readonly HashSet<uint> textProps = new()
         {
@@ -914,6 +930,45 @@ namespace LandmarkEmulator.WorldServer.Game
             Broadcast(prop);
             if (Chests.Slots(propId) > 0 || IsSpawner(propId))
                 PropLimits.Changed(owner.ZoneId, position);
+            return prop.Spawn.Guid;
+        }
+
+        /// <summary>
+        /// Capture-import: free placed prop with a new guid (never reuses capture guids), owned by
+        /// <paramref name="ownerGuid"/> on <paramref name="zone"/>.
+        /// </summary>
+        public static ulong ImportCaptured(ulong ownerGuid, uint zone, uint propId, uint modelId, uint nameId,
+            Vector3 position, Vector4 rotation, float scale, string tintAlias, bool enabled)
+        {
+            var prop = new PlacedProp
+            {
+                PropId = propId,
+                OwnerGuid = ownerGuid,
+                Zone = zone,
+                Free = true,
+                Placed = true,
+                Disabled = !enabled,
+                Spawn = new PlayerUpdateAddLightweightProp
+                {
+                    Guid = (ulong)Interlocked.Increment(ref nextGuid),
+                    TransientId = PlayerManager.AllocateTransientId(),
+                    NameId = nameId,
+                    ModelId = modelId,
+                    Position = new Vector4(position, 1f),
+                    Rotation = rotation == Vector4.Zero ? new Vector4(0f, 0f, 0f, 1f) : rotation,
+                    Scale = new Vector4(scale, scale, scale, 1f),
+                    OwnerGuid = ownerGuid,
+                    TintAlias = tintAlias ?? "",
+                    Enabled = enabled
+                }
+            };
+            lock (sync)
+            {
+                props.Add(prop);
+                byGuid[prop.Spawn.Guid] = prop;
+            }
+            Persist(prop);
+            Broadcast(prop);
             return prop.Spawn.Guid;
         }
 

@@ -102,6 +102,8 @@ namespace LandmarkEmulator.WorldServer
             Game.Vendors.StartUp();
             Game.Graveyards.Load(worldConfig.GameDirectory, worldConfig.SurfaceGraveyards, worldConfig.CavernGraveyardStamps);
             Game.Achievements.Load();
+            // World NPCs after achievements (quest goals) and terrain heights (spawn on ground).
+            Game.Npc.WorldNpcs.Init();
             Game.ModelFootprints.Load(worldConfig.GameDirectory);
             Game.Landscapes.Load(worldConfig.GameDirectory);
             // The other landscapes' Chaos Caverns (CavernLandscapes; audit-outposts-695.md F2), after the home continent's.
@@ -195,6 +197,7 @@ namespace LandmarkEmulator.WorldServer
                 Run("world editing", Game.WorldEditing.Update);
                 Run("heroic movement", Game.HeroicMovement.Update);
                 Run("creatures", Game.Creatures.Update);
+                Run("world npcs", Game.Npc.WorldNpcs.Update);
                 Run("site pathing", Game.Pathing.UpdateSites);
                 Run("combat states", Game.Combat.Statuses.Update);
                 Run("outposts", Game.Outposts.Update);

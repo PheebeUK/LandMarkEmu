@@ -1029,38 +1029,10 @@ namespace LandmarkEmulator.WorldServer.Game
 
         /// <summary>
         /// Claim record (client FUN_142d01c40; 0.695 FUN_142da1a50 adds a u32 to the site-game struct and a trailing u64).
-        /// Only id, owner, name and bounds are filled; the rest (members, permissions lists, upkeep, contest data) is empty.
+        /// Wire layout shared with capture import via <see cref="LandmarkEmulator.CaptureImport.ClaimRecordCodec"/>.
         /// </summary>
         private static void WriteRecord(GamePacketWriter writer, ClaimModel claim)
         {
-            writer.Write(claim.Id);
-            // Parent group, then owner. A non-zero parent makes the client file the site under that group
-            // (FUN_142d16cf0 → FUN_143b5b220) instead of treating it as a root site (which also gets the buffer).
-            writer.Write(0ul);
-            writer.Write(claim.OwnerGuid);
-            writer.Write(claim.Name);
-            writer.Write(0ul);
-            // The Info tab (FUN_142d19b90) shows record +0x38 as the site's name and +0x50 as its welcome message.
-            writer.Write(claim.Name);
-            writer.Write(claim.Description ?? "");
-            writer.Write("");
-            writer.Write(0u);
-            writer.Write(claim.MinX);
-            writer.Write(claim.MinY);
-            writer.Write(claim.MinZ);
-            writer.Write(claim.MaxX);
-            writer.Write(claim.MaxY);
-            writer.Write(claim.MaxZ);
-            // Default Access: public, group, guild (record +0xb8/+0xbc/+0xc0 → 0.695 claim entry +0x2d8/+0x2dc/+0x2e0 by
-            // FUN_142d9bad0; 0.589 entry +0x2d0/+0x2d4/+0x2d8). Site Management's data source names them PermissionsPublic,
-            // PermissionsGroup and PermissionsGuild (FUN_142db8ab0). Each as the owner last sent it (0x2D).
-            writer.Write(claim.DefaultPermissions);
-            writer.Write(claim.GroupPermissions);
-            writer.Write(claim.GuildPermissions);
-            // Special access: players {u64 guid, u32 mask} (FUN_142d044a0: the client's permission checks), guilds
-            // (same, FUN_142d04a20), then the named list Site Management shows (record +0x130, elements FUN_142d022d0:
-            // {u64 guid, string name, u32 access, bool}; FUN_142d19b90 → ClaimEditDialog.ClaimItemAdvPermissions rows,
-            // "Unknown" without a name).
             Dictionary<ulong, uint> players;
             Dictionary<ulong, string> names;
             lock (sync)
@@ -1068,55 +1040,39 @@ namespace LandmarkEmulator.WorldServer.Game
                 players = special.TryGetValue(claim.Id, out var map) ? new Dictionary<ulong, uint>(map) : new();
                 names = players.Keys.ToDictionary(k => k, k => specialNames.GetValueOrDefault(k, ""));
             }
-            writer.Write((uint)players.Count);
-            foreach ((ulong guid, uint mask) in players)
-            {
-                writer.Write(guid);
-                writer.Write(mask);
-            }
-            writer.Write(0u);
-            writer.Write((uint)players.Count);
-            foreach ((ulong guid, uint mask) in players)
-            {
-                writer.Write(guid);
-                writer.Write(names[guid]);
-                writer.Write(mask);
-                writer.Write(false);
-            }
-            writer.Write(0u);
-            // Record +0x158 → claim entry +0x138 (0.695 FUN_142db5ca0): the "admin template" (ClaimsPacketSetAsAdminClaim).
-            // Non-zero makes the walk-on window show the contest-winner banner (WalkOnText AdminTemplateGuid, AS3
-            // getIsAdminClaim): the Landmarks of Landmark sites (LandmarksOfLandmark.cs, TASKS 3.20). 0 elsewhere.
-            writer.Write(LandmarksOfLandmark.AdminTemplateOf(claim.Id));
-            writer.Write(false);
-            writer.Write(0u);
-            writer.Write(0u);
-            writer.Write(0u);                           // empty list
-            // The five "supplemental" strings → claim entry +0x48 / +0x60 / +0x78 / +0x90 / +0xa8, which an admin site's
-            // banner shows (FUN_142dc7540, ClaimDialogs.WinnerWalkOnText: WinnerCompetitionName, WinnerClaimName, WinnerCompetitionDescription,
-            // WinnerCompetitionDate, contributors list), then the feedback recipient guid (+0x1e0 → entry +0xc0).
             string[] winner = LandmarksOfLandmark.WinnerTextsOf(claim.Id);
-            for (int i = 0; i < 5; i++)
-                writer.Write(winner?[i] ?? "");
-            writer.Write(0ul);
-            // The site's game (FUN_142cffe50 → claim entry +0x140, shown by the walk-on window).
-            InstancedGames.WriteInfo(writer, claim.Id);
-            writer.Write(0ul);
-            writer.Write("");
-            writer.Write(0u);                           // empty list
-            // Time of day inside the site (FUN_142d01940 → client claim +0xc8..+0xd4, applied on walking in by
-            // FUN_142d29390): owner hour (-1 = world clock) and rate, then the same for visitors. Zeros would force
-            // midnight with the clock stopped, so the sky changed on every entry.
-            writer.Write(claim.TimeHour);
-            writer.Write(claim.TimeRate);
-            writer.Write(claim.VisitorTimeHour);
-            writer.Write(claim.VisitorTimeRate);
-            writer.Write(0u);
-            writer.Write(ModeOf(claim.Id));             // record +0x348 → claim entry +0x370 (2 = Play Mode)
-            writer.Write(0u);                           // empty list
-            // 0.695 (FUN_142da1a50): u64 Play Mode Rules flags (record +0x3e0 → claim entry +0x380), as stored by
-            // ClaimsPacketSetAdventureFlags (<see cref="SetAdventureFlags"/>; trace/0695/packets-695.md §6).
-            writer.Write(claim.AdventureFlags & AdventureFlagMask);
+            var record = new LandmarkEmulator.CaptureImport.ClaimRecord
+            {
+                Id = claim.Id,
+                OwnerGuid = claim.OwnerGuid,
+                Name = claim.Name,
+                InfoName = claim.Name,
+                Description = claim.Description ?? "",
+                MinX = claim.MinX,
+                MinY = claim.MinY,
+                MinZ = claim.MinZ,
+                MaxX = claim.MaxX,
+                MaxY = claim.MaxY,
+                MaxZ = claim.MaxZ,
+                DefaultPermissions = claim.DefaultPermissions,
+                GroupPermissions = claim.GroupPermissions,
+                GuildPermissions = claim.GuildPermissions,
+                SpecialPlayers = players,
+                SpecialNames = names,
+                AdminTemplateGuid = LandmarksOfLandmark.AdminTemplateOf(claim.Id),
+                WinnerTexts = winner ?? new[] { "", "", "", "", "" },
+                TimeHour = claim.TimeHour,
+                TimeRate = claim.TimeRate,
+                VisitorTimeHour = claim.VisitorTimeHour,
+                VisitorTimeRate = claim.VisitorTimeRate,
+                Mode = ModeOf(claim.Id),
+                AdventureFlags = claim.AdventureFlags & AdventureFlagMask
+            };
+            LandmarkEmulator.CaptureImport.ClaimRecordCodec.Write(writer, record,
+                new LandmarkEmulator.CaptureImport.ClaimRecordWriteExtras
+                {
+                    WriteSiteGame = w => InstancedGames.WriteInfo(w, claim.Id)
+                });
         }
 
         /// <summary>Dev "lapsesite": the player's site lapses now, as if its upkeep ran out (then Build Site Contents).</summary>
@@ -1901,6 +1857,33 @@ namespace LandmarkEmulator.WorldServer.Game
                 return !claims.Any(c => c.ZoneId == zone
                     && Math.Abs(x - (c.MinX + c.MaxX) / 2) < HalfSize + BufferFromCentre
                     && Math.Abs(z - (c.MinZ + c.MaxZ) / 2) < HalfSize + BufferFromCentre);
+        }
+
+        /// <summary>
+        /// Inserts a capture-imported site: new id, given bounds/settings, owner remapped to
+        /// <paramref name="claim"/>.OwnerGuid. Skips buffer-overlap checks (capture placement is intentional).
+        /// Players on that landscape are sent it.
+        /// </summary>
+        public static ClaimModel Import(ClaimModel claim, string ownerName)
+        {
+            claim.Id = (ulong)Interlocked.Increment(ref nextId);
+            if (string.IsNullOrWhiteSpace(claim.Name))
+                claim.Name = $"{ownerName}'s Claim";
+            if (claim.DefaultPermissions == 0)
+                claim.DefaultPermissions = DefaultAccess;
+            lock (sync)
+                claims.Add(claim);
+            Terrain.ZoneTerrain.ClearVeinsInSite(claim.ZoneId, (claim.MinX, claim.MinY, claim.MinZ), (claim.MaxX, claim.MaxY, claim.MaxZ));
+            DatabaseManager.Instance.CharacterDatabase.SaveWorld(c => c.Claim.Add(claim))
+                .ContinueWith(t => log.Error(t.Exception, $"Failed to save imported claim {claim.Id}."),
+                    System.Threading.Tasks.TaskContinuationOptions.OnlyOnFaulted);
+            var add = BuildAoiUpdate(false, new[] { claim }, Array.Empty<ulong>());
+            foreach (WorldSession other in PlayerManager.InZone(claim.ZoneId))
+                other.EnqueueMessage(ZoneMessageOpcode.ClaimsBase, add);
+            if (PlayerManager.FindByGuid(claim.OwnerGuid) is WorldSession owner)
+                SendSiteRows(owner);
+            log.Info($"Imported site {claim.Id} for {ownerName} on landscape {claim.ZoneId}.");
+            return claim;
         }
 
         /// <summary>

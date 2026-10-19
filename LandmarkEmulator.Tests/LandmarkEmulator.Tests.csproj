@@ -40,6 +40,7 @@
     <ProjectReference Include="..\LandmarkEmulator.WebAPI\LandmarkEmulator.WebAPI.csproj" />
     <!-- The capture tools, for the CellsUpdate walk (Packets/CellsUpdateLayoutTests.cs). -->
     <ProjectReference Include="..\LandmarkEmulator.Parser\LandmarkEmulator.Parser.csproj" />
+    <ProjectReference Include="..\LandmarkEmulator.CaptureImport\LandmarkEmulator.CaptureImport.csproj" />
   </ItemGroup>
 
   <ItemGroup>

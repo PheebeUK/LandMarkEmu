@@ -118,13 +118,18 @@ namespace LandmarkEmulator.EnvServer
                 var lines = new List<string> { RuinRecords.StampsHeader };
                 foreach (string file in Directory.EnumerateFiles(terrainEdits, "spire_base*.txt"))
                 {
-                    // spire_base.txt (home continent) / spire_base_<zone>.txt: "voxel x y z [fill none | fill x0 y0 z0 x1 y1 z1]"
-                    // corner voxel and the ground filled under the floor (global voxels) since 2026-10-17; before that
-                    // "x y z" corner cell (the world reverts and stamps those again: Spire.RevertOldStamp).
+                    // spire_base.txt / spire_base_<zone>.txt: "merge x y z [deck none | deck …]" (2026-10-19); older
+                    // "voxel … fill …" or "x y z" cell (world reverts those and merge-places again).
                     string name = Path.GetFileNameWithoutExtension(file);
                     string zone = name == "spire_base" ? "home" : name["spire_base_".Length..];
                     string[] c = File.ReadAllText(file).Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (c.Length >= 4 && c[0] == "voxel")
+                    if (c.Length >= 4 && c[0] == "merge")
+                    {
+                        lines.Add(string.Join('\t', lines.Count, "base_portal_spire.otd", zone, "merge", c[1], c[2], c[3], "imported"));
+                        if (c.Length == 11 && c[4] == "deck")
+                            lines.Add(string.Join('\t', lines.Count, "spire_deck", zone, "voxel", c[5], c[6], c[7], "imported"));
+                    }
+                    else if (c.Length >= 4 && c[0] == "voxel")
                     {
                         lines.Add(string.Join('\t', lines.Count, "base_portal_spire.otd", zone, "voxel", c[1], c[2], c[3], "imported"));
                         if (c.Length == 11 && c[4] == "fill")

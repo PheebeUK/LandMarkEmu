@@ -1048,9 +1048,9 @@ Rates are ours; the patch notes only say "rare" or "a chance".
 - Build site time (Advanced Build Settings, `Claims.SetTime`): owner and visitor settings, hour -1 = the world clock
   ("Game Time" / "Custom Speed"), 0-23 = stopped at that hour, -2 = the visitor's PC clock (client-supported, no
   menu entry); speed 0.25-1000 as the client clamps it (the slider runs 1-1000).
-- `Game/Spire.cs`: the teleporter hub of every landscape (the client's Spire template, model 596 and its props): the
-  home continent's at the zone origin, the others at the nearest level ground to the centre; its floor on the ground
-  (docs/terrain.md "Voxel templates"). Usable props: Replicator, Repair Station, Mailbox, Crimson Parlor, Portal Crystal,
+- `Game/Spire.cs`: the teleporter hub of every landscape (the client's Spire template, model 596 and its props): nearest
+  level ground to the zone centre (home included; deck ≤ 17 m relief ≈ plinth height); deck seated into the landscape
+  (no air-box stamp / fill; docs/terrain.md "Voxel templates"). Usable props: Replicator, Repair Station, Mailbox, Crimson Parlor, Portal Crystal,
   Resupply Chest 884 (missing starter tools back) and the Founder's Chest 898 the server adds beside it (missing
   Founder's Pack items back).
 - `Game/Teleport.cs`: moves a player, snapped to the ground.
@@ -1074,7 +1074,7 @@ Write lines to the world's `dev_commands.txt` (next to the server executable; in
 |---|---|
 | `send <hex>` | Send raw zone bytes to everyone. |
 | `give <item> <n>` | Give items. |
-| `finditem <text>` | Search item names. |
+| `finditem <text\|#id>` | Search item names (or by id); at most 40 matches logged, empty refused. |
 | `timeofday <h>` | Set the world clock. |
 | `clock` | Log the world clock and tell the players in chat (compare with the client's `GameData.Time`). |
 | `carve`, `dig`, `digmode` | Shape terrain / change how digging shapes holes. |

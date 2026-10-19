@@ -100,8 +100,7 @@ Copy **`.env.example`** to **`.env`** and open it in a text editor. Every settin
 | `GAME_DIR` | Your Landmark folder, the one with `Landmark64.exe` (forward slashes, e.g. `C:/Program Files (x86)/Steam/steamapps/common/Landmark`). It is mounted read-only: nothing in it is changed. |
 | `DB_ROOT_PASSWORD`, `DB_PASSWORD` | Two long random passwords of your choice (letters and digits). Only the containers use them. |
 | `PUBLIC_HOST` | The address other players use to reach this PC. Empty: only this PC can play. |
-| `ADMIN_ACCOUNT` | `account:` and your account name (e.g. `account:Alice`) to be an admin on your world. |
-
+| `ADMIN_ACCOUNT` | Optional bootstrap admin (`account:Alice`); prefer the auth DB `admin` table (docs/admin.md). |
 ### 3. Start it
 
 **With `start.bat` (Windows, optional):** on its first run it asks for your Landmark folder, your account name and the
@@ -151,8 +150,8 @@ Accounts, characters and builds are kept in the database volume, and each world'
 ### 6. Admins and the update
 
 - Admins type **`/admin`** in chat for the admin page: god mode, revive, coins and items, travel, time of day,
-  creatures, broadcasts, kicks, a shutdown countdown and any developer command. Set them in `.env` (`ADMIN_ACCOUNT`,
-  `ADMIN_2`, `ADMIN_3`, `ADMINS`), see [docs/admin.md](docs/admin.md).
+  creatures, broadcasts, kicks, a shutdown countdown and any developer command. Add them in the auth DB `admin` table
+  (SQL), or optionally bootstrap with `.env` (`ADMIN_ACCOUNT`, …); see [docs/admin.md](docs/admin.md).
 - To offer players the 0.695 update, put the update pack (`.lmpatch`) in `docker/launcher/patches`. The server checks
   it with the same rules every LaunchPad uses before it serves it (refused packs go to `rejected/` with the reason).
   A player who has a 0.695 copy can make the pack in LaunchPad (Settings → Patch packs → Create update pack).
@@ -203,7 +202,9 @@ dotnet test LandmarkEmulator.sln
 | `LandmarkEmulator.Database.Social` | The social service's database (`lmemu_social`) |
 | `LandmarkEmulator.LaunchPad` | LaunchPad, the players' launcher |
 | `LandmarkEmulator.PatchPacks` | The 0.695 update: pack format, the built-in file lists, checks and install (LaunchPad and the server) |
-| `LandmarkEmulator.Parser` | Reads packet captures of the live game and decodes them with the server's models |
+| `LandmarkEmulator.Parser` | Reads packet captures of the live game and decodes them with the server's models; `extract-creations` builds offline claim/prop/voxel packages from parsed bins |
+| `LandmarkEmulator.CaptureImport` | Shared codecs and package IO for capture creation extract / WorldServer `importcreation` |
+| `tools/creation-pipeline.ps1` | Batch steps: triage → parse/decrypt → extract packages → import command list |
 | `LandmarkEmulator.Tests` | Unit tests: packet layouts against live captures, game rules, patch pack security |
 
 Other folders: `docker/` and `docker-compose.yml` (the containers), `data/` (small tables derived from the client),
@@ -234,6 +235,7 @@ no decompiled client code is included, so load your own copy in Ghidra to follow
 | [docs/story-tools.md](docs/story-tools.md) | Story tools: Links, Play Mode, the prop settings window |
 | [docs/encounters.md](docs/encounters.md) | Encounters (EncounterBase 0x2C): duels and the death window |
 | [docs/unknowns.md](docs/unknowns.md) | How the once-unknown packet fields were named, and what is still open |
+| [docs/bugs.md](docs/bugs.md) | Known bugs (open and fixed) |
 
 ---
 

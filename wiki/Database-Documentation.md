@@ -19,7 +19,7 @@ time it starts. The connection strings are built by the compose files from `DB_P
 
 | Database | Schema | Used by | Tables |
 |---|---|---|---|
-| [Auth](Database-Auth) | `lmemu_auth` | login server, worlds, gateways | 2 |
+| [Auth](Database-Auth) | `lmemu_auth` | login server, worlds, gateways | 3 |
 | [Character](Database-Character) | `lmemu_character` | login server, worlds | 30 |
 | [World](Database-World) | `lmemu_world_<WORLD_KEY>` | its world | 9 |
 | [Social](Database-Social) | `lmemu_social` | social service | 7 |

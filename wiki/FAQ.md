@@ -90,5 +90,6 @@ them. See [Server Installation](Server-Installation#more-worlds).
 
 ### How do I become an admin on my own server?
 
-Put `ADMIN_ACCOUNT=account:<your account name>` in `.env` and run `docker compose up -d`. In game, type `/admin`. See
-[Account Creation](Account-Creation#admins).
+Insert a row into the auth DB: `INSERT INTO admin (entry) VALUES ('account:<your account name>');` (host port
+`DB_PORT`, default 3307), then log in again and type `/admin`. For a first admin before the table has rows, you can
+still set `ADMIN_ACCOUNT=account:<name>` in `.env`. See [Account Creation](Account-Creation#admins).

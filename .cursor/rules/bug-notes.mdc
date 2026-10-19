@@ -1,0 +1,13 @@
+---
+description: Record bugs in docs/bugs.md when found or reported
+alwaysApply: true
+---
+
+# Bug notes
+
+When the user reports a bug, or work uncovers one that is not fixed in the same turn:
+
+1. Add or update an entry in [docs/bugs.md](docs/bugs.md) under **Open** (date, where, what, likely cause if known).
+2. Do not wait to be asked again — keep the list current.
+3. When a listed bug is fixed, move that entry to **Fixed** with the date and a one-line how.
+4. Prefer fixing the bug in the same session when the cause is clear; still record it first if the fix is deferred.

@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using LandmarkEmulator.CaptureImport;
 using LandmarkEmulator.WorldServer.Game.WorldChannel;
 using LandmarkEmulator.WorldServer.Network;
 using LandmarkEmulator.WorldServer.Network.Message;
@@ -713,7 +714,14 @@ namespace LandmarkEmulator.WorldServer.Game
                         case "npc":
                         {
                             // npc <model> [dx dz]: spawn a creature model next to the player (visual test).
-                            string[] a = parts[1].Split(' ');
+                            // npc reload | goto <id> | reset | flag <id> <key> [value]: world NPC scripting helpers.
+                            string[] a = parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            if (a.Length > 0 && a[0] is "reload" or "goto" or "reset" or "flag")
+                            {
+                                foreach (WorldSession session in targets)
+                                    log.Info($"npc: {Npc.WorldNpcs.DevCommand(session, a)}");
+                                break;
+                            }
                             foreach (WorldSession session in targets)
                             {
                                 var at = session.Position + new System.Numerics.Vector3(a.Length > 2 ? float.Parse(a[1]) : 3f, 0f, a.Length > 2 ? float.Parse(a[2]) : 3f);
@@ -834,15 +842,34 @@ namespace LandmarkEmulator.WorldServer.Game
                         case "finditem":
                         {
                             // finditem <text|#id>: item definitions whose name contains the text (as this client names them), or by id.
-                            string needle = parts.Length > 1 ? parts[1] : "";
+                            // Cap matches: an empty needle used to match every name (Contains("")) and flood the world tick
+                            // with log lines, which froze the game and the /admin page (docs/bugs.md 2026-10-18).
+                            string needle = parts.Length > 1 ? parts[1].Trim() : "";
+                            if (needle.Length == 0)
+                            {
+                                Reply(commandSource, replies, "usage: finditem [text|#id] (type a name fragment or #id)");
+                                break;
+                            }
+                            const int findItemCap = 40;
+                            int matched = 0, shown = 0;
+                            bool byId = needle.StartsWith('#');
                             foreach (var d in Inventory.ItemDefinitionManager.All)
                             {
                                 string name = LandmarkEmulator.Shared.GameTable.Text.TextManager.Instance.GetTextForId(d.NameId) ?? "";
-                                // "#38" looks an item up by id.
-                                if (needle.StartsWith('#') ? needle[1..] == d.Id.ToString() : name.Contains(needle, StringComparison.OrdinalIgnoreCase))
-                                    log.Info($"item {d.Id}: {name} (max stack {d.MaxStack}, categories {string.Join(",", d.Categories)}{(d.PropId != 0 ? $", prop {d.PropId}" : "")}){(d.Abilities.Count > 0 ? " abilities " + string.Join(",", d.Abilities.Select(x => x.AbilityId)) : "")}"
-                                        + (parts.Length > 1 && needle.Length > 0 ? $" — {LandmarkEmulator.Shared.GameTable.Text.TextManager.Instance.GetTextForId(d.DescriptionId)}" : ""));
+                                if (!(byId ? needle[1..] == d.Id.ToString() : name.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+                                    continue;
+                                matched++;
+                                if (shown >= findItemCap)
+                                    continue;
+                                shown++;
+                                log.Info($"item {d.Id}: {name} (max stack {d.MaxStack}, categories {string.Join(",", d.Categories)}{(d.PropId != 0 ? $", prop {d.PropId}" : "")}){(d.Abilities.Count > 0 ? " abilities " + string.Join(",", d.Abilities.Select(x => x.AbilityId)) : "")}"
+                                    + $" — {LandmarkEmulator.Shared.GameTable.Text.TextManager.Instance.GetTextForId(d.DescriptionId)}");
                             }
+                            Reply(commandSource, replies, matched == 0
+                                ? $"finditem: no items matching \"{needle}\"."
+                                : matched > shown
+                                    ? $"finditem: {matched} matches for \"{needle}\" (first {shown} in the server log)."
+                                    : $"finditem: {matched} match(es) for \"{needle}\" (server log).");
                             break;
                         }
                         case "shutdown":
@@ -1051,6 +1078,73 @@ namespace LandmarkEmulator.WorldServer.Game
                             foreach (WorldSession session in targets)
                                 Claims.DevPlaceHere(session);
                             break;
+                        case "importcreation":
+                        {
+                            // importcreation <packageDir> [claimId …] [--owner <guid|me>] [--dry-run]
+                            // Applies a Parser extract-creations package (claims + voxels + props).
+                            string[] a = parts.Length > 1
+                                ? parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                                : Array.Empty<string>();
+                            if (a.Length == 0)
+                            {
+                                log.Warn("importcreation <packageDir> [claimId …] [--owner me|<guid>] [--dry-run]");
+                                break;
+                            }
+                            string packageDir = a[0];
+                            bool dryRun = a.Any(x => x == "--dry-run");
+                            ulong ownerGuid = 0;
+                            string ownerName = "import";
+                            var claimIds = new List<ulong>();
+                            for (int i = 1; i < a.Length; i++)
+                            {
+                                if (a[i] == "--dry-run")
+                                    continue;
+                                if (a[i] == "--owner" && i + 1 < a.Length)
+                                {
+                                    string who = a[++i];
+                                    if (who == "me" && targets.Count > 0)
+                                    {
+                                        ownerGuid = targets[0].PlayerGuid;
+                                        ownerName = targets[0].CharacterName;
+                                    }
+                                    else if (ulong.TryParse(who.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? who[2..] : who,
+                                                 System.Globalization.NumberStyles.HexNumber, null, out ulong hex))
+                                        ownerGuid = hex;
+                                    else if (ulong.TryParse(who, out ulong dec))
+                                        ownerGuid = dec;
+                                    continue;
+                                }
+                                if (ulong.TryParse(a[i], out ulong id))
+                                    claimIds.Add(id);
+                            }
+                            if (ownerGuid == 0 && targets.Count > 0)
+                            {
+                                ownerGuid = targets[0].PlayerGuid;
+                                ownerName = targets[0].CharacterName;
+                            }
+                            if (ownerGuid == 0)
+                            {
+                                log.Warn("importcreation: need --owner or a targeted player");
+                                break;
+                            }
+                            if (!Directory.Exists(packageDir))
+                            {
+                                log.Warn($"importcreation: package not found: {packageDir}");
+                                break;
+                            }
+                            CreationImportPlan plan = CreationImporter.Apply(packageDir, ownerGuid, ownerName,
+                                claimIds.Count > 0 ? claimIds : null, dryRun, targets.FirstOrDefault());
+                            foreach (CreationImportClaimPlan c in plan.Claims)
+                            {
+                                string summary = dryRun
+                                    ? $"dry-run claim {c.CaptureClaimId} ready={c.Ready} cells={c.CellCount} build={c.BuildLayerCellCount} props={c.PropCount} ({c.Name})"
+                                    : $"imported claim {c.CaptureClaimId} → {c.NewClaimId} cells={c.CellCount} props={c.PropCount} ({c.Name})";
+                                log.Info($"importcreation: {summary}");
+                                foreach (WorldSession session in targets)
+                                    Chat.System(session, summary);
+                            }
+                            break;
+                        }
                         case "sitename":
                             // sitename <name>: renames the player's site (same checks as Build Site Management).
                             foreach (WorldSession session in targets)

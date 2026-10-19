@@ -21,6 +21,7 @@ COPY LandmarkEmulator.WorldChannel/LandmarkEmulator.WorldChannel.csproj Landmark
 COPY LandmarkEmulator.CommerceServer/LandmarkEmulator.CommerceServer.csproj LandmarkEmulator.CommerceServer/
 COPY LandmarkEmulator.EnvServer/LandmarkEmulator.EnvServer.csproj LandmarkEmulator.EnvServer/
 COPY LandmarkEmulator.Shared/LandmarkEmulator.Shared.csproj LandmarkEmulator.Shared/
+COPY LandmarkEmulator.CaptureImport/LandmarkEmulator.CaptureImport.csproj LandmarkEmulator.CaptureImport/
 COPY LandmarkEmulator.WebAPI/LandmarkEmulator.WebAPI.csproj LandmarkEmulator.WebAPI/
 COPY LandmarkEmulator.PatchPacks/LandmarkEmulator.PatchPacks.csproj LandmarkEmulator.PatchPacks/
 RUN dotnet restore LandmarkEmulator.AuthServer/LandmarkEmulator.AuthServer.csproj \

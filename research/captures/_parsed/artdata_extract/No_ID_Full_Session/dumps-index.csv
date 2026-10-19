@@ -1,0 +1,6 @@
+dump_index,file,dir,opcode,name,packet_len,abs_s,rel_sendself_ms,rel_clientready_ms,rel_firstzone_ms
+0,0000_S_ArtDataTintDefinitionManagerData_0x00001601.bin,S,0x00001601,ArtDataTintDefinitionManagerData,735808,1486537894.535213,-767.5,-5617.7,0.0
+1,0001_S_SendSelfToClient_0x00000F00.bin,S,0x00000F00,SendSelfToClient,747711,1486537895.302742,0.0,-4850.2,767.5
+2,SendSelf.bin,S,0x00000F00,SendSelfToClient,747711,1486537895.302742,0.0,-4850.2,767.5
+3,0003_S_TerrainCellModifiedCellManifest_0xEC000A00.bin,S,0xEC000A00,TerrainCellModifiedCellManifest,1502220,1486537902.784573,7481.8,2631.6,8249.4
+4,TerrainCellManifest.bin,S,0xEC000A00,TerrainCellModifiedCellManifest,1502220,1486537902.784573,7481.8,2631.6,8249.4
